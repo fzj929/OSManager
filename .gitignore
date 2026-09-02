@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.npm-cache/
+**/dist/
+artifacts/
+src/OSManager.Api/data/
+src/OSManager.Api/wwwroot/
+*.user
+*.log
+**/*.tsbuildinfo
+tests/.deps/
+test-artifacts/

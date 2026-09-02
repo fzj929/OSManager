@@ -1,0 +1,10 @@
+# Copy to /etc/sudoers.d/osmanager and validate with: visudo -cf /etc/sudoers.d/osmanager
+# Replace app-a.service and nginx.service with the exact ManagedServices whitelist.
+Cmnd_Alias OSMANAGER_SERVICES = \
+  /usr/bin/systemctl start app-a.service, \
+  /usr/bin/systemctl stop app-a.service, \
+  /usr/bin/systemctl restart app-a.service, \
+  /usr/bin/systemctl start nginx.service, \
+  /usr/bin/systemctl stop nginx.service, \
+  /usr/bin/systemctl restart nginx.service
+osmanager ALL=(root) NOPASSWD: OSMANAGER_SERVICES

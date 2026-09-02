@@ -1,0 +1,22 @@
+[Unit]
+Description=OSManager Linux host control console
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=osmanager
+Group=osmanager
+WorkingDirectory=/opt/osmanager
+ExecStart=/usr/bin/dotnet /opt/osmanager/OSManager.Api.dll
+Restart=on-failure
+RestartSec=5
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5080
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=true
+ReadWritePaths=/var/lib/osmanager
+
+[Install]
+WantedBy=multi-user.target

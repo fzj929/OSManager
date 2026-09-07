@@ -53,8 +53,10 @@ Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/start.sh") -Destinatio
 Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/stop.sh") -Destination $stagingRoot
 Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/restart.sh") -Destination $stagingRoot
 Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/status.sh") -Destination $stagingRoot
+Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/uninstall.sh") -Destination $stagingRoot
 Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/configure-sudo.sh") -Destination $stagingRoot
 Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/grant-path.sh") -Destination $stagingRoot
+Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/managed-service-helper.sh.template") -Destination $stagingRoot
 Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/osmanager.service.template") -Destination $stagingRoot
 Copy-Item -LiteralPath (Join-Path $repoRoot "deploy/linux/appsettings.Production.example.json") -Destination $stagingRoot
 [IO.File]::WriteAllText((Join-Path $stagingRoot "VERSION"), $Version, (New-Object Text.UTF8Encoding($false)))

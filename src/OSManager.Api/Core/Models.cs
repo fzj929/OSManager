@@ -4,6 +4,7 @@ public sealed class OSManagerOptions
 {
     public string DataDirectory { get; set; } = "data";
     public long MaxUploadBytes { get; set; } = 100 * 1024 * 1024;
+    public long MaxServicePackageBytes { get; set; } = 500 * 1024 * 1024;
     public long MaxExtractedBytes { get; set; } = 500 * 1024 * 1024;
     public int MaxArchiveEntries { get; set; } = 5000;
     public int LogSearchMaxDays { get; set; } = 7;
@@ -12,15 +13,21 @@ public sealed class OSManagerOptions
     public List<string> ManagedServices { get; set; } = [];
 }
 
-public sealed record ManagedDirectory(string Id, string Name, string Path, bool CanUpload = false, string? RelatedService = null);
+public sealed record ManagedDirectory(string Id, string Name, string Path, bool CanUpload = false, string? RelatedService = null, string BackupExcludes = "");
+public sealed record ManagedServiceRequest(string Name);
+public sealed record DeploymentResult(long Id, string Hash, string? RelatedService, bool CanRestart);
+public sealed record FileDeleteRequest(string RootId, string Path, bool Backup);
+public sealed record FileDeleteResult(bool BackedUp, long? DeploymentId, string? RelatedService, bool CanRestart);
+public sealed record ManagedLogSource(string Id, string Name, string Path, string FilePattern = "*.log;*.txt");
+public sealed record UserUpdateRequest(string DisplayName, string Role, bool IsEnabled);
+public sealed record AdminResetPasswordRequest(string NewPassword);
 public sealed record AuthUser(long Id, string UserName, string DisplayName, string Role);
 public sealed record LoginRequest(string UserName, string Password);
 public sealed record LoginResponse(string Token, AuthUser User);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record ServiceActionRequest(string Action);
-public sealed record ConfigSubmitRequest(string RootId, string Path, string Content, string? Reason, string Version);
-public sealed record ApprovalRequest(string Decision, string? Comment);
-public sealed record LogSearchRequest(string RootId, string Path, DateTimeOffset Start, DateTimeOffset End, string Query, bool Regex = false, bool CaseSensitive = false, int Limit = 1000);
+public sealed record ConfigSaveRequest(string RootId, string Path, string Content, string Version);
+public sealed record LogSearchRequest(string RootId, string? Path, DateTimeOffset Start, DateTimeOffset End, string Query, bool Regex = false, bool CaseSensitive = false, int Limit = 1000);
 public sealed record JournalQuery(string Service, DateTimeOffset Start, DateTimeOffset End, string? Query, string? Priority, int Limit = 1000);
 public sealed record MetricPoint(DateTimeOffset Time, double Cpu, double Memory, long UsedMemory, long TotalMemory, double Load1, double Load5, double Load15);
 

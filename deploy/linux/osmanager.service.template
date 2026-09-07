@@ -7,8 +7,9 @@ Wants=network-online.target
 Type=simple
 User=__SERVICE_USER__
 Group=__SERVICE_GROUP__
+__JOURNAL_GROUP_LINE__
 WorkingDirectory=__INSTALL_ROOT__/current
-ExecStart=/usr/bin/dotnet __INSTALL_ROOT__/current/OSManager.Api.dll
+ExecStart=__DOTNET_BIN__ __INSTALL_ROOT__/current/OSManager.Api.dll
 Restart=on-failure
 RestartSec=5
 Environment=ASPNETCORE_ENVIRONMENT=Production

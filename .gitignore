@@ -10,4 +10,5 @@ src/OSManager.Api/wwwroot/
 *.log
 **/*.tsbuildinfo
 tests/.deps/
+**/__pycache__/
 test-artifacts/

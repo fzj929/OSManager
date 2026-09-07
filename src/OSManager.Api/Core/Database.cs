@@ -20,15 +20,28 @@ public sealed class Database
         await db.OpenAsync();
         var sql = """
         PRAGMA journal_mode=WAL;
-        CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, role TEXT NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, role TEXT NOT NULL, password_hash TEXT NOT NULL, is_enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id));
         CREATE TABLE IF NOT EXISTS audit_logs(id INTEGER PRIMARY KEY, user_name TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL, success INTEGER NOT NULL, details TEXT, ip TEXT, created_at TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS deployments(id INTEGER PRIMARY KEY, user_name TEXT NOT NULL, root_id TEXT NOT NULL, relative_path TEXT NOT NULL, backup_path TEXT NOT NULL, sha256 TEXT NOT NULL, status TEXT NOT NULL, related_service TEXT, created_at TEXT NOT NULL, rolled_back_at TEXT);
+        CREATE TABLE IF NOT EXISTS deployments(id INTEGER PRIMARY KEY, user_name TEXT NOT NULL, root_id TEXT NOT NULL, relative_path TEXT NOT NULL, backup_path TEXT NOT NULL, sha256 TEXT NOT NULL, status TEXT NOT NULL, operation TEXT NOT NULL DEFAULT 'Deploy', related_service TEXT, created_at TEXT NOT NULL, rolled_back_at TEXT);
         CREATE TABLE IF NOT EXISTS config_changes(id INTEGER PRIMARY KEY, root_id TEXT NOT NULL, relative_path TEXT NOT NULL, content TEXT NOT NULL, base_version TEXT NOT NULL, reason TEXT, submitter TEXT NOT NULL, status TEXT NOT NULL, reviewer TEXT, review_comment TEXT, created_at TEXT NOT NULL, reviewed_at TEXT, applied_at TEXT);
+        CREATE TABLE IF NOT EXISTS managed_directories(id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL, can_upload INTEGER NOT NULL DEFAULT 0, related_service TEXT, backup_excludes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS managed_services(name TEXT PRIMARY KEY, created_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS managed_log_sources(id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL, file_pattern TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS resource_registry_meta(id INTEGER PRIMARY KEY CHECK(id=1), initialized INTEGER NOT NULL);
         """;
         await using var cmd = db.CreateCommand();
         cmd.CommandText = sql;
         await cmd.ExecuteNonQueryAsync();
+
+        cmd.CommandText = "ALTER TABLE users ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1";
+        try { await cmd.ExecuteNonQueryAsync(); } catch (SqliteException ex) when (ex.SqliteErrorCode == 1 && ex.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase)) { }
+
+        cmd.CommandText = "ALTER TABLE managed_directories ADD COLUMN backup_excludes TEXT NOT NULL DEFAULT ''";
+        try { await cmd.ExecuteNonQueryAsync(); } catch (SqliteException ex) when (ex.SqliteErrorCode == 1 && ex.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase)) { }
+
+        cmd.CommandText = "ALTER TABLE deployments ADD COLUMN operation TEXT NOT NULL DEFAULT 'Deploy'";
+        try { await cmd.ExecuteNonQueryAsync(); } catch (SqliteException ex) when (ex.SqliteErrorCode == 1 && ex.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase)) { }
 
         cmd.CommandText = "SELECT COUNT(*) FROM users";
         var count = Convert.ToInt64(await cmd.ExecuteScalarAsync());
@@ -49,7 +62,7 @@ public sealed class Database
     {
         await using var db = Open(); await db.OpenAsync();
         await using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT id,username,display_name,role,password_hash FROM users WHERE username=$u";
+        cmd.CommandText = "SELECT id,username,display_name,role,password_hash FROM users WHERE username=$u AND is_enabled=1";
         cmd.Parameters.AddWithValue("$u", username);
         await using var reader = await cmd.ExecuteReaderAsync();
         if (!await reader.ReadAsync() || !Passwords.Verify(password, reader.GetString(4))) return null;
@@ -66,7 +79,7 @@ public sealed class Database
     {
         await using var db = Open(); await db.OpenAsync();
         await using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT u.id,u.username,u.display_name,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=$t AND s.expires_at>$now";
+        cmd.CommandText = "SELECT u.id,u.username,u.display_name,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=$t AND s.expires_at>$now AND u.is_enabled=1";
         cmd.Parameters.AddWithValue("$t", token); cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
         await using var r = await cmd.ExecuteReaderAsync();
         return await r.ReadAsync() ? new AuthUser(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3)) : null;
@@ -89,11 +102,11 @@ public sealed class Database
         await cmd.ExecuteNonQueryAsync();
     }
 
-    public async Task<long> AddDeploymentAsync(string user, string rootId, string path, string backup, string hash, string? service)
+    public async Task<long> AddDeploymentAsync(string user, string rootId, string path, string backup, string hash, string? service, string operation = "Deploy")
     {
         await using var db = Open(); await db.OpenAsync(); await using var cmd = db.CreateCommand();
-        cmd.CommandText = "INSERT INTO deployments(user_name,root_id,relative_path,backup_path,sha256,status,related_service,created_at) VALUES($u,$r,$p,$b,$h,'Succeeded',$s,$t); SELECT last_insert_rowid();";
-        cmd.Parameters.AddWithValue("$u", user); cmd.Parameters.AddWithValue("$r", rootId); cmd.Parameters.AddWithValue("$p", path); cmd.Parameters.AddWithValue("$b", backup); cmd.Parameters.AddWithValue("$h", hash); cmd.Parameters.AddWithValue("$s", service ?? ""); cmd.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToString("O"));
+        cmd.CommandText = "INSERT INTO deployments(user_name,root_id,relative_path,backup_path,sha256,status,operation,related_service,created_at) VALUES($u,$r,$p,$b,$h,'Succeeded',$o,$s,$t); SELECT last_insert_rowid();";
+        cmd.Parameters.AddWithValue("$u", user); cmd.Parameters.AddWithValue("$r", rootId); cmd.Parameters.AddWithValue("$p", path); cmd.Parameters.AddWithValue("$b", backup); cmd.Parameters.AddWithValue("$h", hash); cmd.Parameters.AddWithValue("$o", operation); cmd.Parameters.AddWithValue("$s", service ?? ""); cmd.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToString("O"));
         return Convert.ToInt64(await cmd.ExecuteScalarAsync());
     }
 
